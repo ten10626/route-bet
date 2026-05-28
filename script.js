@@ -189,7 +189,7 @@ function renderTitle() {
         <p class="subtagline">分岐予想ゲーム</p>
         <div class="title-actions">
           ${saved ? `<button id="resume-game">続きから再開</button>` : ""}
-          <button id="go-count" class="primary-start">${saved ? "最初から始める" : "ゲーム開始"}</button>
+          <button id="go-count" class="primary-start">ゲーム開始</button>
         </div>
       </div>
     </section>
