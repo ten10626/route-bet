@@ -38,6 +38,7 @@ const state = {
   route: [],
   currentStage: 0,
   zoom: 1,
+  betMessage: "",
   changes: []
 };
 
@@ -77,6 +78,7 @@ function startRound() {
   state.answers = [];
   state.route = ["A-1"];
   state.currentStage = 0;
+  state.betMessage = "";
   state.changes = [];
   state.phase = "bet";
   render();
@@ -191,6 +193,7 @@ function renderNames() {
 function renderGame() {
   const parent = state.players[state.parentIndex];
   const bettor = state.players[state.betOrder[state.betTurn]];
+  const currentBetCount = getCurrentBetCount();
   const title =
     state.phase === "bet"
       ? `プレイヤー${state.betOrder[state.betTurn] + 1} ${escapeHtml(bettor.name)}のBET`
@@ -207,7 +210,7 @@ function renderGame() {
           <span class="pill">${state.round + 1} / ${state.players.length} ラウンド</span>
         </div>
         <div class="row">
-          ${state.phase === "bet" ? `<button id="next-bettor">BET決定</button>` : ""}
+          ${state.phase === "bet" ? `<button id="next-bettor" ${currentBetCount === 0 ? "disabled" : ""}>BET決定</button>` : ""}
           ${state.phase === "answer" ? `<button class="secondary" id="undo-answer" ${state.answers.length === 0 ? "disabled" : ""}>1つ戻る</button>` : ""}
           ${state.phase === "roundResult" ? `<button id="to-changes">次へ</button>` : ""}
           <div class="zoom-controls">
@@ -216,6 +219,7 @@ function renderGame() {
           </div>
         </div>
       </header>
+      ${state.phase === "bet" && currentBetCount === 0 ? `<div class="notice">${state.betMessage || "最低1か所BETしてください"}</div>` : ""}
       <div class="board-wrap">
         <div class="board" style="--zoom:${state.zoom}">
           ${renderBoard()}
@@ -286,6 +290,12 @@ function renderCard(card) {
 }
 
 function renderAnswerButtons(cardId) {
+  if (state.phase === "bet") {
+    return html`
+      <span class="answer-choice readonly">YES</span>
+      <span class="answer-choice readonly no">NO</span>
+    `;
+  }
   if (state.phase !== "answer" || getActiveAnswerCardId() !== cardId) return "";
   return html`
     <button data-answer="YES">YES</button>
@@ -419,6 +429,7 @@ function selectBetCard(cardId) {
   const bets = state.bets[playerIndex] || [];
   const already = bets.some((bet) => bet.cardId === cardId);
   if (!already && bets.length >= 2) return;
+  state.betMessage = "";
   state.selectedCardId = cardId;
   render();
 }
@@ -435,6 +446,7 @@ function saveBet() {
     bets.push({ cardId: state.selectedCardId, amount });
   }
   state.bets[playerIndex] = bets;
+  state.betMessage = "";
   state.selectedCardId = null;
   render();
 }
@@ -447,7 +459,13 @@ function deleteBet() {
 }
 
 function nextBettor() {
+  if (getCurrentBetCount() === 0) {
+    state.betMessage = "最低1か所BETしてください";
+    render();
+    return;
+  }
   state.selectedCardId = null;
+  state.betMessage = "";
   if (state.betTurn < state.betOrder.length - 1) {
     state.betTurn += 1;
     render();
@@ -457,6 +475,12 @@ function nextBettor() {
   state.currentStage = 0;
   state.route = ["A-1"];
   render();
+}
+
+function getCurrentBetCount() {
+  if (state.phase !== "bet") return 0;
+  const playerIndex = state.betOrder[state.betTurn];
+  return (state.bets[playerIndex] || []).length;
 }
 
 function answer(choice) {
