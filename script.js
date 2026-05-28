@@ -22,6 +22,8 @@ const STAGES = [
 ];
 
 const FINAL_MULTIPLIERS = [16, 12, 8, 12, 16];
+const STORAGE_KEY = "oneTabletPartyGameState";
+const SAVE_VERSION = 1;
 
 const state = {
   phase: "title",
@@ -84,6 +86,58 @@ function startRound() {
   render();
 }
 
+function getSavedPayload() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || payload.version !== SAVE_VERSION || !payload.state) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return payload;
+  } catch (error) {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
+function hasSavedGame() {
+  return Boolean(getSavedPayload());
+}
+
+function restoreSavedGame() {
+  const payload = getSavedPayload();
+  if (!payload) return false;
+  Object.assign(state, payload.state);
+  if (!Array.isArray(state.players) || state.players.length === 0) {
+    clearSavedGame();
+    return false;
+  }
+  return true;
+}
+
+function saveGameState() {
+  if (!shouldPersistState()) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: SAVE_VERSION,
+      savedAt: new Date().toISOString(),
+      state
+    }));
+  } catch (error) {
+    console.warn("ゲーム進行の保存に失敗しました。", error);
+  }
+}
+
+function clearSavedGame() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+function shouldPersistState() {
+  return ["bet", "answer", "roundResult", "changes", "final"].includes(state.phase);
+}
+
 function buildDeck() {
   const picked = shuffle(questions).slice(0, 15);
   let q = 0;
@@ -118,19 +172,32 @@ function render() {
   if (state.phase === "roundResult") renderGame();
   if (state.phase === "changes") renderChanges();
   if (state.phase === "final") renderFinal();
+  saveGameState();
 }
 
 function renderTitle() {
+  const saved = hasSavedGame();
   app.innerHTML = html`
     <section class="screen center-screen">
       <div class="panel">
         <h1 class="title">YES ROUTE</h1>
         <p class="lead">1台のタブレットを回して遊ぶ、3〜8人用の個人用試作パーティーゲーム。</p>
-        <button id="go-count">ゲーム開始</button>
+        <div class="row">
+          ${saved ? `<button id="resume-game">続きから再開</button>` : ""}
+          <button id="go-count">${saved ? "最初から始める" : "ゲーム開始"}</button>
+        </div>
       </div>
     </section>
   `;
+  document.getElementById("resume-game")?.addEventListener("click", () => {
+    if (restoreSavedGame()) {
+      render();
+      return;
+    }
+    renderTitle();
+  });
   document.getElementById("go-count").addEventListener("click", () => {
+    clearSavedGame();
     state.phase = "count";
     render();
   });
@@ -698,6 +765,7 @@ function renderFinal() {
     </section>
   `;
   document.getElementById("restart").addEventListener("click", () => {
+    clearSavedGame();
     state.phase = "title";
     render();
   });
