@@ -222,6 +222,7 @@ function renderGame() {
       ${state.phase === "bet" && currentBetCount === 0 ? `<div class="notice">${state.betMessage || "最低1か所BETしてください"}</div>` : ""}
       <div class="board-wrap">
         <div class="board" style="--zoom:${state.zoom}">
+          <svg class="guide-layer" aria-hidden="true"></svg>
           ${renderBoard()}
         </div>
       </div>
@@ -231,6 +232,7 @@ function renderGame() {
 
   bindBoardEvents();
   bindCommonControls();
+  drawGuideLines();
 }
 
 function renderBoard() {
@@ -239,10 +241,11 @@ function renderBoard() {
     return `<div class="column">${cards}</div>`;
   }).join("");
 
-  const finals = state.deck
-    .filter((card) => card.id.startsWith("Y-") || card.id.startsWith("N-"))
-    .map(renderCard)
-    .join("");
+  const finals = Array.from({ length: 5 }, (_, index) => {
+    const yCard = state.deck.find((card) => card.id === `Y-${index + 1}`);
+    const nCard = state.deck.find((card) => card.id === `N-${index + 1}`);
+    return `<div class="final-pair">${renderCard(yCard)}${renderCard(nCard)}</div>`;
+  }).join("");
   return `${columns}<div class="column column-final">${finals}</div>`;
 }
 
@@ -262,6 +265,7 @@ function renderCard(card) {
     state.phase === "roundResult" && card.bettable ? resultClass(card.id) : ""
   ].filter(Boolean).join(" ");
 
+  const nodeAttr = `data-node-id="${card.id}"`;
   const clickAttrs = isBettable ? `tabindex="0" role="button" data-card-id="${card.id}"` : "";
   const head = html`
     <div class="card-head">
@@ -272,7 +276,7 @@ function renderCard(card) {
 
   if (isFinal) {
     return html`
-      <div class="${classNames}" ${clickAttrs}>
+      <div class="${classNames}" ${nodeAttr} ${clickAttrs}>
         ${head}
         <div class="bet-strip">${renderBetsForCard(card.id)}</div>
       </div>
@@ -280,7 +284,7 @@ function renderCard(card) {
   }
 
   return html`
-    <div class="${classNames}" ${clickAttrs}>
+    <div class="${classNames}" ${nodeAttr} ${clickAttrs}>
       ${head}
       <div class="question">${escapeHtml(card.question)}</div>
       <div class="answer-buttons">${renderAnswerButtons(card.id)}</div>
@@ -291,15 +295,19 @@ function renderCard(card) {
 
 function renderAnswerButtons(cardId) {
   if (state.phase === "bet") {
-    return html`
-      <span class="answer-choice readonly">YES</span>
-      <span class="answer-choice readonly no">NO</span>
-    `;
+    return renderReadonlyAnswerChoices();
   }
-  if (state.phase !== "answer" || getActiveAnswerCardId() !== cardId) return "";
+  if (state.phase !== "answer" || getActiveAnswerCardId() !== cardId) return renderReadonlyAnswerChoices();
   return html`
-    <button data-answer="YES">YES</button>
-    <button class="no" data-answer="NO">NO</button>
+    <button data-answer="YES" data-guide-choice="YES">YES</button>
+    <button class="no" data-answer="NO" data-guide-choice="NO">NO</button>
+  `;
+}
+
+function renderReadonlyAnswerChoices() {
+  return html`
+    <span class="answer-choice readonly" data-guide-choice="YES">YES</span>
+    <span class="answer-choice readonly no" data-guide-choice="NO">NO</span>
   `;
 }
 
@@ -422,6 +430,63 @@ function bindCommonControls() {
     state.phase = "changes";
     render();
   });
+}
+
+function drawGuideLines() {
+  requestAnimationFrame(() => {
+    const board = document.querySelector(".board");
+    const svg = document.querySelector(".guide-layer");
+    if (!board || !svg) return;
+
+    const boardRect = board.getBoundingClientRect();
+    const scale = state.zoom || 1;
+    const toBoardPoint = (rect, xRatio, yRatio) => ({
+      x: (rect.left - boardRect.left + rect.width * xRatio) / scale,
+      y: (rect.top - boardRect.top + rect.height * yRatio) / scale
+    });
+
+    const lines = [];
+    STAGES.forEach((stage, stageIndex) => {
+      for (let i = 1; i <= stage.count; i += 1) {
+        const fromCard = document.querySelector(`[data-node-id="${stage.key}-${i}"]`);
+        if (!fromCard) continue;
+
+        const targets = getGuideTargets(stageIndex, i);
+        ["YES", "NO"].forEach((choice) => {
+          const choiceEl = fromCard.querySelector(`[data-guide-choice="${choice}"]`);
+          const targetCard = document.querySelector(`[data-node-id="${targets[choice]}"]`);
+          if (!choiceEl || !targetCard) return;
+
+          const start = toBoardPoint(choiceEl.getBoundingClientRect(), 1, 0.5);
+          const end = toBoardPoint(targetCard.getBoundingClientRect(), 0, 0.5);
+          const midX = start.x + Math.max(18, (end.x - start.x) * 0.48);
+          lines.push({ choice, start, end, midX });
+        });
+      }
+    });
+
+    const width = board.scrollWidth;
+    const height = board.scrollHeight;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.innerHTML = lines.map((line) => {
+      const path = `M ${line.start.x.toFixed(1)} ${line.start.y.toFixed(1)} C ${line.midX.toFixed(1)} ${line.start.y.toFixed(1)}, ${line.midX.toFixed(1)} ${line.end.y.toFixed(1)}, ${line.end.x.toFixed(1)} ${line.end.y.toFixed(1)}`;
+      return `<path class="guide-line guide-${line.choice.toLowerCase()}" d="${path}"></path>`;
+    }).join("");
+  });
+}
+
+function getGuideTargets(stageIndex, oneBasedIndex) {
+  if (stageIndex === 4) {
+    return {
+      YES: `Y-${oneBasedIndex}`,
+      NO: `N-${oneBasedIndex}`
+    };
+  }
+  const nextStage = STAGES[stageIndex + 1];
+  return {
+    YES: `${nextStage.key}-${oneBasedIndex}`,
+    NO: `${nextStage.key}-${oneBasedIndex + 1}`
+  };
 }
 
 function selectBetCard(cardId) {
@@ -576,13 +641,12 @@ function resolveRound() {
 function renderChanges() {
   const rows = state.changes.map((change) => {
     const player = state.players[change.playerIndex];
+    const debtChanged = change.beforeDebt !== 0 || change.afterDebt !== 0;
     return html`
       <div class="result-row">
-        <div><span class="dot" style="background:${player.color.value}"></span> ${escapeHtml(player.name)}</div>
-        <div>所持</div>
-        <div>${change.beforePoints}pt → ${change.afterPoints}pt</div>
-        <div>借り</div>
-        <div>${change.beforeDebt}pt → ${change.afterDebt}pt</div>
+        <div class="result-name"><span class="dot" style="background:${player.color.value}"></span> ${escapeHtml(player.name)}</div>
+        <div class="result-line">所持 ${change.beforePoints}pt → ${change.afterPoints}pt</div>
+        ${debtChanged ? `<div class="result-line debt-line">借り ${change.beforeDebt}pt → ${change.afterDebt}pt</div>` : ""}
       </div>
     `;
   }).join("");
