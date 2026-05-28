@@ -1,8 +1,8 @@
-# One Tablet Party Prototype
+# ROUTE BET
 
-HTML / CSS / JavaScriptのみで動く、タブレット横向き前提の1台回し型パーティーゲーム試作です。
+HTML / CSS / JavaScriptのみで動く、タブレット横向き前提の1台回し型パーティーゲームです。
 
-このリポジトリは個人用試作・検索流入を想定しないものです。`index.html` には `noindex, nofollow` を設定し、`robots.txt` でも全クローラーを拒否しています。ただし、完全に検索されないことを保証するものではありません。
+このリポジトリは限定共有向けで、検索流入を想定しないものです。`index.html` には `noindex, nofollow` を設定し、`robots.txt` でも全クローラーを拒否しています。ただし、完全に検索されないことを保証するものではありません。
 
 ## 遊び方
 

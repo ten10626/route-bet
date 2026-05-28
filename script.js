@@ -178,13 +178,18 @@ function render() {
 function renderTitle() {
   const saved = hasSavedGame();
   app.innerHTML = html`
-    <section class="screen center-screen">
-      <div class="panel">
-        <h1 class="title">YES ROUTE</h1>
-        <p class="lead">1台のタブレットを回して遊ぶ、3〜8人用の個人用試作パーティーゲーム。</p>
-        <div class="row">
+    <section class="screen center-screen title-screen">
+      <div class="panel title-panel">
+        <div class="title-mark">
+          <span>YES</span>
+          <span>NO</span>
+        </div>
+        <h1 class="title">ROUTE BET</h1>
+        <p class="tagline">YES/NOの先を読む</p>
+        <p class="subtagline">分岐予想ゲーム</p>
+        <div class="title-actions">
           ${saved ? `<button id="resume-game">続きから再開</button>` : ""}
-          <button id="go-count">${saved ? "最初から始める" : "ゲーム開始"}</button>
+          <button id="go-count" class="primary-start">${saved ? "最初から始める" : "ゲーム開始"}</button>
         </div>
       </div>
     </section>
