@@ -23,7 +23,7 @@ const STAGES = [
 
 const FINAL_MULTIPLIERS = [16, 12, 8, 12, 16];
 const STORAGE_KEY = "oneTabletPartyGameState";
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 const state = {
   phase: "title",
