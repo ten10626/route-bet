@@ -23,7 +23,7 @@ const STAGES = [
 
 const FINAL_MULTIPLIERS = [16, 12, 8, 12, 16];
 const STORAGE_KEY = "oneTabletPartyGameState";
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 const state = {
   phase: "title",
@@ -75,6 +75,7 @@ function startRound() {
   state.deck = buildDeck();
   state.bets = {};
   state.betOrder = state.players.map((_, index) => index).filter((index) => index !== state.parentIndex);
+  applyRoundStartBonus();
   state.betTurn = 0;
   state.selectedCardId = null;
   state.answers = [];
@@ -84,6 +85,15 @@ function startRound() {
   state.changes = [];
   state.phase = "bet";
   render();
+}
+
+function applyRoundStartBonus() {
+  if (state.round === 0) return;
+  state.players.forEach((player, index) => {
+    if (index !== state.parentIndex) {
+      player.points += 100;
+    }
+  });
 }
 
 function getSavedPayload() {
@@ -244,7 +254,7 @@ function renderNames() {
       <div class="panel">
         <h2>名前入力</h2>
         <div class="name-grid">${fields}</div>
-        <p class="small">全員100ptスタート。0ptになったら自動で100pt借ります。</p>
+        <p class="small">全員100ptスタート。新しいラウンド開始時、子プレイヤーに100ptが入ります。</p>
         <button id="start">開始</button>
       </div>
     </section>
@@ -253,8 +263,7 @@ function renderNames() {
     state.players = Array.from({ length: state.playerCount }, (_, index) => ({
       name: document.getElementById(`player-${index}`).value.trim() || `プレイヤー${index + 1}`,
       color: COLORS[index],
-      points: 100,
-      debt: 0
+      points: 100
     }));
     state.parentIndex = 0;
     state.round = 0;
@@ -266,6 +275,7 @@ function renderGame() {
   const parent = state.players[state.parentIndex];
   const bettor = state.players[state.betOrder[state.betTurn]];
   const currentBetCount = getCurrentBetCount();
+  const canAdvanceBetTurn = canAdvanceCurrentBetTurn();
   const title =
     state.phase === "bet"
       ? `プレイヤー${state.betOrder[state.betTurn] + 1} ${escapeHtml(bettor.name)}のBET`
@@ -282,7 +292,7 @@ function renderGame() {
           <span class="pill">${state.round + 1} / ${state.players.length} ラウンド</span>
         </div>
         <div class="row">
-          ${state.phase === "bet" ? `<button id="next-bettor" ${currentBetCount === 0 ? "disabled" : ""}>BET決定</button>` : ""}
+          ${state.phase === "bet" ? `<button id="next-bettor" ${canAdvanceBetTurn ? "" : "disabled"}>BET決定</button>` : ""}
           ${state.phase === "answer" ? `<button class="secondary" id="undo-answer" ${state.answers.length === 0 ? "disabled" : ""}>1つ戻る</button>` : ""}
           ${state.phase === "roundResult" ? `<button id="to-changes">次へ</button>` : ""}
           <div class="zoom-controls">
@@ -291,7 +301,7 @@ function renderGame() {
           </div>
         </div>
       </header>
-      ${state.phase === "bet" && currentBetCount === 0 ? `<div class="notice">${state.betMessage || "最低1か所BETしてください"}</div>` : ""}
+      ${state.phase === "bet" && currentBetCount === 0 ? `<div class="notice">${state.betMessage || getDefaultBetMessage()}</div>` : ""}
       <div class="board-wrap">
         <div class="board" style="--zoom:${state.zoom}">
           <svg class="guide-layer" aria-hidden="true"></svg>
@@ -434,8 +444,7 @@ function renderBetPanel() {
   const playerIndex = state.betOrder[state.betTurn];
   const bets = state.bets[playerIndex] || [];
   const existing = bets.find((bet) => bet.cardId === state.selectedCardId);
-  const otherTotal = bets.filter((bet) => bet.cardId !== state.selectedCardId).reduce((sum, bet) => sum + bet.amount, 0);
-  const max = Math.max(0, state.players[playerIndex].points - otherTotal);
+  const max = getRemainingBettablePoints(playerIndex, state.selectedCardId);
   const value = Math.min(existing ? existing.amount : Math.min(10, max), max);
 
   return html`
@@ -563,6 +572,11 @@ function getGuideTargets(stageIndex, oneBasedIndex) {
 
 function selectBetCard(cardId) {
   const playerIndex = state.betOrder[state.betTurn];
+  if (state.players[playerIndex].points <= 0) {
+    state.betMessage = "所持ポイントが0ptのためBETできません";
+    render();
+    return;
+  }
   const bets = state.bets[playerIndex] || [];
   const already = bets.some((bet) => bet.cardId === cardId);
   if (!already && bets.length >= 2) return;
@@ -575,6 +589,8 @@ function saveBet() {
   const amount = Number(document.getElementById("bet-range").value);
   if (amount <= 0) return;
   const playerIndex = state.betOrder[state.betTurn];
+  const max = getRemainingBettablePoints(playerIndex, state.selectedCardId);
+  if (amount > max) return;
   const bets = state.bets[playerIndex] || [];
   const existing = bets.find((bet) => bet.cardId === state.selectedCardId);
   if (existing) {
@@ -596,8 +612,8 @@ function deleteBet() {
 }
 
 function nextBettor() {
-  if (getCurrentBetCount() === 0) {
-    state.betMessage = "最低1か所BETしてください";
+  if (!canAdvanceCurrentBetTurn()) {
+    state.betMessage = getDefaultBetMessage();
     render();
     return;
   }
@@ -618,6 +634,27 @@ function getCurrentBetCount() {
   if (state.phase !== "bet") return 0;
   const playerIndex = state.betOrder[state.betTurn];
   return (state.bets[playerIndex] || []).length;
+}
+
+function canAdvanceCurrentBetTurn() {
+  if (state.phase !== "bet") return false;
+  const playerIndex = state.betOrder[state.betTurn];
+  if (state.players[playerIndex].points <= 0) return true;
+  return getCurrentBetCount() > 0;
+}
+
+function getDefaultBetMessage() {
+  if (state.phase !== "bet") return "";
+  const playerIndex = state.betOrder[state.betTurn];
+  return state.players[playerIndex].points <= 0
+    ? "所持ポイントが0ptのためBETできません"
+    : "最低1か所BETしてください";
+}
+
+function getRemainingBettablePoints(playerIndex, cardId) {
+  const bets = state.bets[playerIndex] || [];
+  const otherTotal = bets.filter((bet) => bet.cardId !== cardId).reduce((sum, bet) => sum + bet.amount, 0);
+  return Math.max(0, state.players[playerIndex].points - otherTotal);
 }
 
 function answer(choice) {
@@ -675,33 +712,19 @@ function resolveRound() {
 
   state.betOrder.forEach((playerIndex) => {
     const player = state.players[playerIndex];
-    const beforePoints = player.points;
-    const beforeDebt = player.debt;
     const bets = state.bets[playerIndex] || [];
 
     bets.forEach((bet) => {
       if (state.route.includes(bet.cardId)) {
         player.points += bet.amount * (cardMultiplier(bet.cardId) - 1);
       } else {
-        player.points -= bet.amount;
+        player.points = Math.max(0, player.points - bet.amount);
       }
     });
 
-    if (player.points <= 0) {
-      player.points = 100;
-      player.debt += 100;
-    }
-
-    if (player.debt > 0) {
-      player.debt += 50;
-    }
-
     changes.push({
       playerIndex,
-      beforePoints,
-      afterPoints: player.points,
-      beforeDebt,
-      afterDebt: player.debt
+      points: player.points
     });
   });
 
@@ -713,12 +736,10 @@ function resolveRound() {
 function renderChanges() {
   const rows = state.changes.map((change) => {
     const player = state.players[change.playerIndex];
-    const debtChanged = change.beforeDebt !== 0 || change.afterDebt !== 0;
     return html`
       <div class="result-row">
         <div class="result-name"><span class="dot" style="background:${player.color.value}"></span> ${escapeHtml(player.name)}</div>
-        <div class="result-line">所持 ${change.beforePoints}pt → ${change.afterPoints}pt</div>
-        ${debtChanged ? `<div class="result-line debt-line">借り ${change.beforeDebt}pt → ${change.afterDebt}pt</div>` : ""}
+        <div class="result-line">${change.points}pt</div>
       </div>
     `;
   }).join("");
@@ -747,16 +768,14 @@ function renderChanges() {
 
 function renderFinal() {
   const ranking = state.players
-    .map((player, index) => ({ player, index, score: player.points - player.debt }))
-    .sort((a, b) => b.score - a.score);
+    .map((player, index) => ({ player, index }))
+    .sort((a, b) => b.player.points - a.player.points);
 
   const rows = ranking.map((entry, rank) => html`
     <div class="ranking-row">
       <div>${rank + 1}位</div>
       <div><span class="dot" style="background:${entry.player.color.value}"></span> ${escapeHtml(entry.player.name)}（${entry.player.color.name}）</div>
-      <div>所持 ${entry.player.points}pt</div>
-      <div>借り ${entry.player.debt}pt</div>
-      <div>最終 ${entry.score}pt</div>
+      <div>${entry.player.points}pt</div>
     </div>
   `).join("");
 
