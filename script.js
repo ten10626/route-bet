@@ -175,6 +175,7 @@ function buildDeck() {
 
 function render() {
   if (state.phase === "title") renderTitle();
+  if (state.phase === "submitQuestions") renderQuestionSubmission();
   if (state.phase === "count") renderCount();
   if (state.phase === "names") renderNames();
   if (state.phase === "bet") renderGame();
@@ -200,6 +201,7 @@ function renderTitle() {
         <div class="title-actions">
           ${saved ? `<button id="resume-game">続きから再開</button>` : ""}
           <button id="go-count" class="primary-start">ゲーム開始</button>
+          <button id="go-submit-questions" class="secondary">お題候補を投稿</button>
         </div>
       </div>
     </section>
@@ -216,6 +218,127 @@ function renderTitle() {
     state.phase = "count";
     render();
   });
+  document.getElementById("go-submit-questions").addEventListener("click", () => {
+    state.phase = "submitQuestions";
+    render();
+  });
+}
+
+function renderQuestionSubmission() {
+  app.innerHTML = html`
+    <section class="screen center-screen submission-screen">
+      <div class="panel submission-panel">
+        <div>
+          <p class="screen-label">ROUTE BET</p>
+          <h2>お題候補投稿</h2>
+          <p class="submission-description">
+            思いついた質問を自由に投稿してください。<br>
+            複数行入力できます。1行につき1問として保存されます。
+          </p>
+        </div>
+        <form id="question-submission-form" class="submission-form">
+          <label for="question-candidates">質問候補</label>
+          <textarea
+            id="question-candidates"
+            rows="9"
+            maxlength="5000"
+            placeholder="雨の日が好き&#10;金縛りにあったことがある&#10;透明人間より瞬間移動が欲しい"
+          ></textarea>
+          <p id="submission-status" class="submission-status" role="status"></p>
+          <div class="submission-actions">
+            <button id="submit-candidates" type="submit">送信</button>
+            <button id="cancel-submission" class="secondary" type="button">戻る</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  `;
+
+  document.getElementById("question-submission-form").addEventListener("submit", handleQuestionSubmission);
+  document.getElementById("cancel-submission").addEventListener("click", () => {
+    state.phase = "title";
+    render();
+  });
+}
+
+async function handleQuestionSubmission(event) {
+  event.preventDefault();
+  const textarea = document.getElementById("question-candidates");
+  const status = document.getElementById("submission-status");
+  const submitButton = document.getElementById("submit-candidates");
+  const candidates = parseQuestionCandidates(textarea.value);
+
+  if (candidates.length === 0) {
+    setSubmissionStatus(status, "1件以上入力してください", "error");
+    return;
+  }
+
+  submitButton.disabled = true;
+  textarea.disabled = true;
+  setSubmissionStatus(status, "送信中です...", "pending");
+
+  try {
+    await submitQuestionCandidates(candidates);
+    setSubmissionStatus(status, "投稿ありがとうございました", "success");
+    window.setTimeout(() => {
+      state.phase = "title";
+      render();
+    }, 1400);
+  } catch (error) {
+    setSubmissionStatus(status, error.message || "送信に失敗しました。時間をおいて再度お試しください。", "error");
+    submitButton.disabled = false;
+    textarea.disabled = false;
+  }
+}
+
+function parseQuestionCandidates(value) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+async function submitQuestionCandidates(candidates) {
+  const endpoint =
+    typeof ROUTE_BET_CONFIG !== "undefined"
+      ? ROUTE_BET_CONFIG.questionSubmissionEndpoint
+      : "";
+
+  if (!endpoint) {
+    throw new Error("投稿先が未設定です。管理者にお知らせください。");
+  }
+
+  const payload = {
+    version: 1,
+    candidates: candidates.map((question) => ({
+      question,
+      submitterName: "",
+      category: ""
+    }))
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error("送信に失敗しました。時間をおいて再度お試しください。");
+  }
+
+  const result = await response.json();
+  if (!result.success) {
+    throw new Error(result.message || "送信に失敗しました。");
+  }
+  return result;
+}
+
+function setSubmissionStatus(element, message, type) {
+  element.textContent = message;
+  element.className = `submission-status ${type}`;
 }
 
 function renderCount() {

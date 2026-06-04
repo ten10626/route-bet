@@ -200,6 +200,92 @@ button:disabled {
   font-size: 19px;
 }
 
+.submission-screen {
+  padding: 18px;
+}
+
+.submission-panel {
+  width: min(680px, calc(100vw - 28px));
+  display: grid;
+  gap: 20px;
+}
+
+.screen-label {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.submission-panel h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.submission-description {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.submission-form {
+  display: grid;
+  gap: 10px;
+}
+
+.submission-form label {
+  font-weight: 900;
+}
+
+.submission-form textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--ink);
+  background: #fffdf8;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.submission-form textarea:focus {
+  border-color: var(--accent);
+  outline: 4px solid rgba(15, 118, 110, 0.15);
+}
+
+.submission-status {
+  min-height: 24px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.submission-status.pending {
+  color: var(--muted);
+}
+
+.submission-status.success {
+  color: var(--accent-dark);
+}
+
+.submission-status.error {
+  color: var(--danger);
+}
+
+.submission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.submission-actions button {
+  min-width: 120px;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -609,5 +695,18 @@ button:disabled {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .submission-panel {
+    padding: 20px;
+  }
+
+  .submission-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .submission-actions button {
+    width: 100%;
   }
 }
