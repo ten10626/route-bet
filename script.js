@@ -329,7 +329,14 @@ async function submitQuestionCandidates(candidates) {
     throw new Error("送信に失敗しました。時間をおいて再度お試しください。");
   }
 
-  const result = await response.json();
+  const responseText = await response.text();
+  let result;
+  try {
+    result = JSON.parse(responseText);
+  } catch (error) {
+    throw new Error("投稿先の応答が正しくありません。Apps Scriptのデプロイ設定を確認してください。");
+  }
+
   if (!result.success) {
     throw new Error(result.message || "送信に失敗しました。");
   }
