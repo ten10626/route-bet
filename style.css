@@ -101,13 +101,14 @@ button:disabled {
 
 .title-panel {
   position: relative;
-  width: min(820px, calc(100vw - 48px));
-  min-height: 420px;
+  width: min(940px, calc(100vw - 40px));
+  min-height: min(620px, calc(100vh - 40px));
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 18px;
+  gap: 20px;
   overflow: hidden;
+  padding: clamp(44px, 7vw, 76px) clamp(30px, 7vw, 84px);
   text-align: center;
   border-color: #77674f;
   background:
@@ -121,19 +122,20 @@ button:disabled {
 .title-panel::after {
   content: "";
   position: absolute;
-  width: 240px;
+  width: min(260px, 28%);
   height: 2px;
   background: rgba(111, 96, 72, 0.34);
+  pointer-events: none;
 }
 
 .title-panel::before {
-  top: 42px;
-  left: 44px;
+  top: 28px;
+  left: 28px;
 }
 
 .title-panel::after {
-  right: 44px;
-  bottom: 42px;
+  right: 28px;
+  bottom: 28px;
 }
 
 .title-mark {
@@ -191,7 +193,9 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
+  max-width: 620px;
+  margin-top: 6px;
 }
 
 .primary-start {
@@ -708,5 +712,63 @@ button:disabled {
 
   .submission-actions button {
     width: 100%;
+  }
+}
+
+@media (max-width: 640px), (max-height: 520px) {
+  .title-screen {
+    align-items: start;
+  }
+
+  .title-panel {
+    width: min(100%, calc(100vw - 28px));
+    min-height: auto;
+    gap: 14px;
+    padding: 36px 20px 28px;
+  }
+
+  .title-panel::before,
+  .title-panel::after {
+    width: 34%;
+    opacity: 0.55;
+  }
+
+  .title-panel::before {
+    top: 18px;
+    left: 18px;
+  }
+
+  .title-panel::after {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .title-mark {
+    transform: scale(0.92);
+  }
+
+  .title {
+    font-size: clamp(48px, 16vw, 76px);
+  }
+
+  .tagline {
+    font-size: clamp(20px, 6vw, 28px);
+  }
+
+  .subtagline {
+    margin: -6px 0 4px;
+  }
+
+  .title-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: min(100%, 340px);
+    gap: 12px;
+  }
+
+  .title-actions button,
+  .primary-start {
+    width: 100%;
+    min-width: 0;
   }
 }

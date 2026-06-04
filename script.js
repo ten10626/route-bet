@@ -24,6 +24,7 @@ const STAGES = [
 const FINAL_MULTIPLIERS = [16, 12, 8, 12, 16];
 const STORAGE_KEY = "oneTabletPartyGameState";
 const SAVE_VERSION = 3;
+let pendingAnswerScrollCardId = null;
 
 const state = {
   phase: "title",
@@ -445,6 +446,7 @@ function renderGame() {
   bindBoardEvents();
   bindCommonControls();
   drawGuideLines();
+  scrollToPendingAnswerCard();
 }
 
 function renderBoard() {
@@ -757,6 +759,7 @@ function nextBettor() {
   state.phase = "answer";
   state.currentStage = 0;
   state.route = ["A-1"];
+  pendingAnswerScrollCardId = "A-1";
   render();
 }
 
@@ -795,8 +798,10 @@ function answer(choice) {
   if (state.currentStage < 4) {
     const nextStage = STAGES[state.currentStage + 1];
     const noCount = state.answers.reduce((sum, item) => sum + (item === "NO" ? 1 : 0), 0);
-    state.route.push(`${nextStage.key}-${noCount + 1}`);
+    const nextCardId = `${nextStage.key}-${noCount + 1}`;
+    state.route.push(nextCardId);
     state.currentStage += 1;
+    pendingAnswerScrollCardId = nextCardId;
     render();
     return;
   }
@@ -805,6 +810,7 @@ function answer(choice) {
   const finalId = `${choice === "YES" ? "Y" : "N"}-${eIndex}`;
   state.route.push(finalId);
   state.currentStage = 5;
+  pendingAnswerScrollCardId = finalId;
   renderFinalConfirm(finalId);
 }
 
@@ -815,6 +821,7 @@ function renderFinalConfirm(finalId) {
   button.textContent = `最終地点 ${finalId} で決定`;
   button.addEventListener("click", resolveRound);
   topbar.prepend(button);
+  scrollToPendingAnswerCard();
 }
 
 function undoAnswer() {
@@ -822,7 +829,31 @@ function undoAnswer() {
   state.answers.pop();
   state.currentStage = Math.max(0, state.currentStage - 1);
   rebuildRoute();
+  pendingAnswerScrollCardId = getActiveAnswerCardId();
   render();
+}
+
+function scrollToPendingAnswerCard() {
+  if (state.phase !== "answer" || !pendingAnswerScrollCardId) return;
+  const targetId = pendingAnswerScrollCardId;
+  pendingAnswerScrollCardId = null;
+
+  requestAnimationFrame(() => {
+    const wrap = document.querySelector(".board-wrap");
+    const card = document.querySelector(`[data-node-id="${targetId}"]`);
+    if (!wrap || !card) return;
+
+    const wrapRect = wrap.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const nextLeft = wrap.scrollLeft + (cardRect.left - wrapRect.left) - (wrapRect.width - cardRect.width) / 2;
+    const nextTop = wrap.scrollTop + (cardRect.top - wrapRect.top) - (wrapRect.height - cardRect.height) / 2;
+
+    wrap.scrollTo({
+      left: Math.max(0, nextLeft),
+      top: Math.max(0, nextTop),
+      behavior: "smooth"
+    });
+  });
 }
 
 function rebuildRoute() {
