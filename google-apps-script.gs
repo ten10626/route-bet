@@ -1,5 +1,6 @@
-const SHEET_NAME = "お題候補";
-const HEADERS = ["投稿日時", "質問文"];
+const SPREADSHEET_ID = "1y9xBAmObTO_EKpvrpzK_2vJR_iKxp7K8ODqP8Kr-Jf4";
+const SHEET_NAME = "responses";
+const HEADERS = ["timestamp", "question"];
 
 function doPost(event) {
   try {
@@ -48,7 +49,7 @@ function doGet() {
 }
 
 function getOrCreateSheet_() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sheet = spreadsheet.getSheetByName(SHEET_NAME);
 
   if (!sheet) {

@@ -1,35 +1,49 @@
-# お題候補投稿の保存先設定
+# お題候補投稿のGoogleスプレッドシート保存設定
 
-ROUTE BETのお題候補投稿をGoogleスプレッドシートへ保存するための設定手順です。
+ROUTE BETのお題候補投稿は、Google Apps ScriptのWebアプリ経由で次のスプレッドシートへ保存します。
 
-## 1. スプレッドシートを作成
+対象スプレッドシート:
 
-1. Googleスプレッドシートを新規作成します。
-2. ファイル名を任意で設定します。
-3. スプレッドシートのタイムゾーンを `日本標準時` に設定します。
+`https://docs.google.com/spreadsheets/d/1y9xBAmObTO_EKpvrpzK_2vJR_iKxp7K8ODqP8Kr-Jf4/edit`
 
-シート名と見出し行はApps Scriptが自動作成します。
+保存先シート:
 
-## 2. Apps Scriptを設定
+`responses`
 
-1. スプレッドシート上部の「拡張機能」から「Apps Script」を開きます。
-2. エディタ内の既存コードを削除します。
-3. リポジトリの `google-apps-script.gs` の内容を貼り付けます。
-4. プロジェクトを保存します。
+列名:
 
-## 3. Webアプリとしてデプロイ
+`timestamp`, `question`
 
-1. Apps Script右上の「デプロイ」から「新しいデプロイ」を選択します。
-2. 種類で「ウェブアプリ」を選択します。
-3. 実行するユーザーを自分に設定します。
-4. アクセスできるユーザーを「全員」に設定します。
-5. デプロイして、表示されたウェブアプリURLを控えます。
+## 1. Apps Scriptを開く
 
-投稿を受け付けるため、ウェブアプリURLは公開URLになります。スプレッドシート自体を公開する必要はありません。
+1. 対象スプレッドシートを開きます。
+2. 上部メニューの「拡張機能」をクリックします。
+3. 「Apps Script」をクリックします。
+4. Apps Scriptエディタが開きます。
 
-## 4. ROUTE BETにURLを設定
+## 2. コードを設定する
 
-`config.js` の `questionSubmissionEndpoint` にウェブアプリURLを設定します。
+1. Apps Scriptエディタ内の既存コードを削除します。
+2. リポジトリの `google-apps-script.gs` の内容を貼り付けます。
+3. 保存します。
+
+このコードはスプレッドシートID `1y9xBAmObTO_EKpvrpzK_2vJR_iKxp7K8ODqP8Kr-Jf4` を直接指定しています。`responses` シートがない場合は自動作成し、1行目に `timestamp` と `question` を設定します。
+
+## 3. Webアプリとしてデプロイする
+
+1. Apps Script右上の「デプロイ」をクリックします。
+2. 「新しいデプロイ」をクリックします。
+3. 種類の歯車アイコンから「ウェブアプリ」を選択します。
+4. 説明に `ROUTE BET question submission` などを入力します。
+5. 「実行するユーザー」を「自分」にします。
+6. 「アクセスできるユーザー」を「全員」にします。
+7. 「デプロイ」をクリックします。
+8. 初回は権限確認が出るので、スプレッドシートへのアクセスを許可します。
+9. 表示された「ウェブアプリURL」を控えます。
+
+## 4. ROUTE BETへURLを設定する
+
+`config.js` の `questionSubmissionEndpoint` に、手順3で取得したWebアプリURLを設定します。
 
 ```js
 const ROUTE_BET_CONFIG = Object.freeze({
@@ -37,15 +51,40 @@ const ROUTE_BET_CONFIG = Object.freeze({
 });
 ```
 
-設定後は `index.html` のCSS/JS読み込みバージョンを更新し、GitHubへpushします。
+設定後、`index.html` の読み込みバージョンを更新し、GitHubへcommit/pushします。
 
-## 5. 動作確認
+## 5. 投稿テスト
 
-1. ROUTE BETのタイトル画面で「お題候補を投稿」を押します。
-2. 複数行の質問を入力して送信します。
-3. 「投稿ありがとうございました」と表示されることを確認します。
-4. スプレッドシートの「お題候補」シートに、投稿日時と質問文が1問ずつ保存されることを確認します。
+1. GitHub PagesのROUTE BETを開きます。
+2. タイトル画面の「お題候補を投稿」を押します。
+3. 次のように複数行で入力します。
 
-## 将来の項目追加
+```text
+雨の日が好き
 
-フロント側の送信データには、質問ごとに `submitterName` と `category` を追加できる構造を用意しています。採用管理を追加する場合は、スプレッドシートの列と `google-apps-script.gs` の保存行を拡張してください。
+金縛りにあったことがある
+透明人間より瞬間移動が欲しい
+```
+
+4. 「送信」を押します。
+5. 「投稿ありがとうございました」と表示されることを確認します。
+6. スプレッドシートの `responses` シートに、空行を除いた3件が1行1問で保存されていることを確認します。
+
+## 送信データ
+
+フロント側は次の形式でWebアプリへPOSTします。
+
+```json
+{
+  "version": 1,
+  "candidates": [
+    {
+      "question": "雨の日が好き",
+      "submitterName": "",
+      "category": ""
+    }
+  ]
+}
+```
+
+現時点で保存する列は `timestamp` と `question` のみです。将来、投稿者名・カテゴリ・採用管理を追加する場合は、`google-apps-script.gs` の `HEADERS` と保存行を拡張してください。
