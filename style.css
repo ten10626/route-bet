@@ -162,6 +162,7 @@ button:disabled {
 }
 
 .title {
+  max-width: 100%;
   margin: 0;
   font-size: clamp(56px, 9vw, 108px);
   line-height: 0.92;
@@ -748,7 +749,7 @@ button:disabled {
   }
 
   .title {
-    font-size: clamp(48px, 16vw, 76px);
+    font-size: clamp(30px, 8.8vw, 50px);
   }
 
   .tagline {
